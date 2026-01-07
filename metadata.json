@@ -1,0 +1,7 @@
+{
+  "name": "Safe Transit Assistant",
+  "description": "A preventive safety navigation system that prioritizes user security over speed, using AI to calculate risk scores based on crime data, street lighting, and real-time crowds.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
