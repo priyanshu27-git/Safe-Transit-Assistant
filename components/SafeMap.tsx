@@ -1,6 +1,6 @@
 import React from 'react';
-import { TransitRoute, RouteSegment } from '../types';
-import { MapPin, User, Shield, AlertTriangle, ShieldCheck, AlertCircle, Sun, Moon, CloudMoon } from 'lucide-react';
+import { TransitRoute } from '../types';
+import { MapPin, User, Shield, AlertTriangle, ShieldCheck, Sun, Moon, CloudMoon, Users } from 'lucide-react';
 
 interface SafeMapProps {
   routes: TransitRoute[];
@@ -42,7 +42,7 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
     }
   };
 
-  const getLightingIcon = (level: string) => {
+  const getLightingInfo = (level: string) => {
     switch (level) {
       case 'high': return { Icon: Sun, color: '#f59e0b', label: 'Well Lit' };
       case 'medium': return { Icon: CloudMoon, color: '#6366f1', label: 'Partial Light' };
@@ -51,26 +51,34 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
     }
   };
 
+  const getCrowdInfo = (level: string) => {
+    switch (level) {
+      case 'busy': return { color: '#2563eb', label: 'Crowded (Safe)', opacity: 1, pulse: true };
+      case 'moderate': return { color: '#60a5fa', label: 'Moderate', opacity: 0.7, pulse: false };
+      case 'empty': return { color: '#94a3b8', label: 'Isolated (Risk)', opacity: 0.4, pulse: false };
+      default: return { color: '#cbd5e1', label: 'Unknown', opacity: 0.5, pulse: false };
+    }
+  };
+
   const userPos = selectedRouteId ? getPointOnPath(selectedRouteId, progress) : { x: 100, y: 300 };
 
   const getRouteSegmentsPathData = (routeId: string) => {
-    // These match the MOCK_ROUTES segments in App.tsx
     if (routeId === 'route-1') {
       return [
-        { d: "M100 300 L400 300", crime: 'moderate', lighting: 'low', midP: 0.25 },
-        { d: "M400 300 L700 300", crime: 'low', lighting: 'high', midP: 0.75 }
+        { d: "M100 300 L400 300", crime: 'moderate', lighting: 'low', crowd: 'empty', midP: 0.25 },
+        { d: "M400 300 L700 300", crime: 'low', lighting: 'high', crowd: 'busy', midP: 0.75 }
       ];
     }
     if (routeId === 'route-2') {
       return [
-        { d: "M100 300 L100 100 L400 100", crime: 'low', lighting: 'high', midP: 0.25 },
-        { d: "M400 100 L700 100 L700 300", crime: 'low', lighting: 'high', midP: 0.75 }
+        { d: "M100 300 L100 100 L400 100", crime: 'low', lighting: 'high', crowd: 'busy', midP: 0.25 },
+        { d: "M400 100 L700 100 L700 300", crime: 'low', lighting: 'high', crowd: 'moderate', midP: 0.75 }
       ];
     }
     if (routeId === 'route-3') {
       return [
-        { d: "M100 300 L100 500 L400 500", crime: 'low', lighting: 'medium', midP: 0.25 },
-        { d: "M400 500 L700 500 L700 300", crime: 'low', lighting: 'medium', midP: 0.75 }
+        { d: "M100 300 L100 500 L400 500", crime: 'low', lighting: 'medium', crowd: 'moderate', midP: 0.25 },
+        { d: "M400 500 L700 500 L700 300", crime: 'low', lighting: 'medium', crowd: 'empty', midP: 0.75 }
       ];
     }
     return [];
@@ -81,41 +89,48 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
       
       {/* Legend Container */}
-      <div className="absolute top-20 left-4 flex flex-col gap-4 z-10 hidden md:flex">
+      <div className="absolute top-20 left-4 flex flex-col gap-3 z-10 hidden md:flex w-52">
         {/* Crime Density Legend */}
-        <div className="glass p-4 rounded-2xl border border-white/60 shadow-xl">
-          <h4 className="text-[10px] font-black text-slate-800 uppercase mb-3 tracking-widest border-b border-slate-200 pb-1">Crime Density</h4>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-1 rounded-full bg-red-500"></div>
-              <span className="text-[11px] text-slate-700 font-bold uppercase">High Risk</span>
+        <div className="glass p-3 rounded-xl border border-white/60 shadow-lg">
+          <h4 className="text-[9px] font-black text-slate-800 uppercase mb-2 tracking-widest border-b border-slate-200 pb-1">Crime Density</h4>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-1 rounded-full bg-red-500"></div>
+              <span className="text-[10px] text-slate-700 font-bold uppercase">High Risk</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-1 rounded-full bg-amber-500"></div>
-              <span className="text-[11px] text-slate-700 font-bold uppercase">Moderate</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-1 rounded-full bg-emerald-500"></div>
-              <span className="text-[11px] text-slate-700 font-bold uppercase">Safe Corridor</span>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
+              <span className="text-[10px] text-slate-700 font-bold uppercase">Safe Corridor</span>
             </div>
           </div>
         </div>
 
         {/* Lighting Legend */}
-        <div className="glass p-4 rounded-2xl border border-white/60 shadow-xl">
-          <h4 className="text-[10px] font-black text-slate-800 uppercase mb-3 tracking-widest border-b border-slate-200 pb-1">Street Lighting</h4>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Sun size={14} className="text-amber-500" />
-              <span className="text-[11px] text-slate-700 font-bold uppercase">Well Lit</span>
+        <div className="glass p-3 rounded-xl border border-white/60 shadow-lg">
+          <h4 className="text-[9px] font-black text-slate-800 uppercase mb-2 tracking-widest border-b border-slate-200 pb-1">Street Lighting</h4>
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center gap-1">
+              <Sun size={12} className="text-amber-500" />
+              <span className="text-[8px] font-bold text-slate-500">WELL-LIT</span>
             </div>
-            <div className="flex items-center gap-3">
-              <CloudMoon size={14} className="text-indigo-500" />
-              <span className="text-[11px] text-slate-700 font-bold uppercase">Medium Light</span>
+            <div className="flex flex-col items-center gap-1">
+              <Moon size={12} className="text-slate-800" />
+              <span className="text-[8px] font-bold text-slate-500">DARK</span>
             </div>
-            <div className="flex items-center gap-3">
-              <Moon size={14} className="text-slate-800" />
-              <span className="text-[11px] text-slate-700 font-bold uppercase">Dark Zone</span>
+          </div>
+        </div>
+
+        {/* Crowd Density Legend */}
+        <div className="glass p-3 rounded-xl border border-white/60 shadow-lg">
+          <h4 className="text-[9px] font-black text-slate-800 uppercase mb-2 tracking-widest border-b border-slate-200 pb-1">Crowd Density</h4>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Users size={12} className="text-blue-600" />
+              <span className="text-[10px] text-slate-700 font-bold uppercase">Busy (Safer)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Users size={12} className="text-slate-400 opacity-50" />
+              <span className="text-[10px] text-slate-700 font-bold uppercase">Empty (Riskier)</span>
             </div>
           </div>
         </div>
@@ -139,7 +154,7 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
         {routes.map((route) => {
           const isSelected = route.id === selectedRouteId;
           const isSafest = route.id === safestRouteId;
-          const opacity = selectedRouteId ? (isSelected ? 1 : 0.1) : 0.6;
+          const opacity = selectedRouteId ? (isSelected ? 1 : 0.08) : 0.6;
           const segments = getRouteSegmentsPathData(route.id);
 
           return (
@@ -149,18 +164,19 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
                 <path 
                   d={segments.map(s => s.d).join(" ")} 
                   stroke="#10b981" 
-                  strokeWidth={isSelected ? 22 : 18} 
+                  strokeWidth={isSelected ? 26 : 22} 
                   fill="none" 
                   strokeLinecap="round" 
-                  opacity={0.2}
+                  opacity={0.15}
                   className="transition-all duration-700"
                 />
               )}
 
               {/* Individual Route Segments */}
               {segments.map((seg, idx) => {
-                const lightingInfo = getLightingIcon(seg.lighting);
+                const lightingInfo = getLightingInfo(seg.lighting);
                 const LightingIconComp = lightingInfo.Icon;
+                const crowdInfo = getCrowdInfo(seg.crowd);
                 const midPoint = getPointOnPath(route.id, seg.midP);
                 
                 return (
@@ -175,10 +191,30 @@ export const SafeMap: React.FC<SafeMapProps> = ({ routes, selectedRouteId, progr
                       className="transition-all duration-500"
                     />
                     
-                    {/* Lighting Indicators on the segment */}
-                    <g transform={`translate(${midPoint.x}, ${midPoint.y - 12})`}>
-                      <circle r="9" fill="white" stroke={lightingInfo.color} strokeWidth="1" />
-                      <LightingIconComp x="-5" y="-5" size={10} style={{ color: lightingInfo.color }} />
+                    {/* Multi-Indicator Group */}
+                    <g transform={`translate(${midPoint.x}, ${midPoint.y})`}>
+                      {/* Lighting Indicator (Above segment) */}
+                      <g transform="translate(-14, -16)">
+                        <circle r="9" fill="white" stroke={lightingInfo.color} strokeWidth="1" className="shadow-sm" />
+                        <LightingIconComp x="-5" y="-5" size={10} style={{ color: lightingInfo.color }} />
+                      </g>
+
+                      {/* Crowd Indicator (Below segment) */}
+                      <g transform="translate(14, 16)">
+                        <circle 
+                          r="9" 
+                          fill="white" 
+                          stroke={crowdInfo.color} 
+                          strokeWidth="1" 
+                          opacity={crowdInfo.opacity}
+                          className={crowdInfo.pulse ? "animate-pulse" : ""}
+                        />
+                        <Users 
+                          x="-5" y="-5" 
+                          size={10} 
+                          style={{ color: crowdInfo.color, opacity: crowdInfo.opacity }} 
+                        />
+                      </g>
                     </g>
                   </g>
                 );
