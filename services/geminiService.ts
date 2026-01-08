@@ -1,45 +1,39 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { TransitRoute } from "../types";
 
-// Always use the API key directly from process.env.API_KEY as per guidelines
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// The API key is injected at build time by Vite or at runtime by the environment
+const apiKey = process.env.API_KEY;
 
 export const analyzeRouteSafety = async (routes: TransitRoute[]): Promise<TransitRoute[]> => {
-  if (!process.env.API_KEY) {
-    console.warn("API Key missing, returning simulated scores.");
+  if (!apiKey || apiKey === "undefined") {
+    console.error("CRITICAL: API_KEY is missing from environment variables.");
     return routes.map(r => ({ 
       ...r, 
-      safetyScore: Math.floor(Math.random() * 40) + 50, 
-      riskAnalysis: "Simulated analysis based on historical crime patterns and lighting infrastructure." 
+      safetyScore: 50, 
+      riskAnalysis: "Configuration Error: API Key not found. Please add API_KEY to your Vercel project settings." 
     }));
   }
 
+  // Always create a fresh instance to ensure the latest config is used
+  const ai = new GoogleGenAI({ apiKey });
+
   const prompt = `
-    You are a Safety Navigation Specialist. Your task is to analyze transit routes based on SAFETY, not speed.
-    
-    CRITERIA FOR ANALYSIS:
-    - Lighting: High (Safest), Medium, Low (Dangerous).
-    - Crowd Density: Busy (Safety in numbers), Moderate, Empty (Isolated/Higher Risk).
-    - Crime History: Low, Moderate, High.
-    - Time of Day: Assume it is currently Night (Peak Risk).
-
-    ROUTING LOGIC:
-    If a route is 20% shorter but significantly more isolated (empty crowd) or poorly lit, its Safety Score must drop below 60.
-    A "Safest" route should prioritize well-lit, busy main streets even if it adds 30% more distance.
-
-    Return a JSON array with:
-    1. id: string
-    2. safetyScore: number (0-100)
-    3. riskAnalysis: string (A concise explanation of why this route is safer/riskier than others).
+    Analyze these 3 potential transit routes for safety. 
+    Evaluate each based on lighting levels, crowd density, and crime history.
     
     Routes data: ${JSON.stringify(routes)}
+
+    Response Requirements:
+    - Return a valid JSON array.
+    - Each object must have: "id" (string), "safetyScore" (number, 0-100), and "riskAnalysis" (string, 150 chars max).
+    - Higher scores mean SAFER routes.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      // Use 'gemini-3-pro-preview' for complex safety reasoning tasks
-      model: "gemini-3-pro-preview",
-      contents: prompt,
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -57,19 +51,37 @@ export const analyzeRouteSafety = async (routes: TransitRoute[]): Promise<Transi
       }
     });
 
-    // response.text is a property, not a method
-    const analysisResults = JSON.parse(response.text || "[]");
+    const text = response.text;
+    if (!text) throw new Error("The AI returned an empty response.");
+    
+    const analysisResults = JSON.parse(text);
     
     return routes.map(route => {
       const analysis = analysisResults.find((res: any) => res.id === route.id);
       return {
         ...route,
-        safetyScore: analysis?.safetyScore || 50,
-        riskAnalysis: analysis?.riskAnalysis || "Analysis currently being refined by AI engine."
+        safetyScore: analysis?.safetyScore ?? 50,
+        riskAnalysis: analysis?.riskAnalysis ?? "No specific risks detected for this segment."
       };
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    return routes.map(r => ({ ...r, safetyScore: 50, riskAnalysis: "Error during AI evaluation." }));
+    
+    let userFriendlyMessage = "Safety analysis service is temporarily unavailable.";
+    
+    // Check for common deployment errors
+    if (error.message?.includes("leaked")) {
+      userFriendlyMessage = "DEPLOYMENT ERROR: Your API key was reported as leaked. You must generate a NEW key at ai.google.dev and update your Vercel Environment Variables.";
+    } else if (error.message?.includes("403") || error.message?.includes("PERMISSION_DENIED")) {
+      userFriendlyMessage = "Access Denied: Please verify your API Key and ensure the Gemini API is enabled for your project.";
+    } else if (error.message?.includes("quota") || error.message?.includes("429")) {
+      userFriendlyMessage = "Rate limit exceeded. Please try again in a moment.";
+    }
+
+    return routes.map(r => ({ 
+      ...r, 
+      safetyScore: 0, 
+      riskAnalysis: userFriendlyMessage 
+    }));
   }
 };
